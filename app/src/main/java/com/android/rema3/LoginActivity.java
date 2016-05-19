@@ -119,7 +119,7 @@ public class LoginActivity extends Activity {
                                     i.putExtra("m_name",m_name);
                                     i.putExtra("l_name",l_name);
                                     i.putExtra("full_name",full_name);
-                                    i.putExtra("profile_image",profile_image);
+                                    i.putExtra("zxcxzcprofile_image",profile_image);
                                     i.putExtra("email_id",email_id);
                                     i.putExtra("gender",gender);
                                     i.putExtra("facebook_link",facebook_link);
