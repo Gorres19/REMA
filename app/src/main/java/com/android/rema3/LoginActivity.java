@@ -3,7 +3,11 @@ package com.android.rema3;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -18,10 +22,23 @@ import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
+import com.facebook.AccessToken;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
+import com.facebook.Profile;
+import com.facebook.appevents.AppEventsLogger;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,11 +54,99 @@ public class LoginActivity extends Activity {
     private ProgressDialog pDialog;
     private SessionManager session;
     private SQLiteHandler db;
+    private LoginButton loginButton;
+    private CallbackManager callbackManager;
+    private String facebook_id, facebook_link, f_name, m_name, l_name, gender, profile_image, full_name, email_id;
+    ProgressDialog progress;
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        FacebookSdk.sdkInitialize(getApplicationContext());
+        AppEventsLogger.activateApp(this);
+        callbackManager = CallbackManager.Factory.create();
+
         setContentView(R.layout.activity_login);
+
+        progress=new ProgressDialog(LoginActivity.this);
+        facebook_id=facebook_link=f_name= m_name= l_name= gender= profile_image= full_name= email_id="";
+
+        loginButton = (LoginButton)findViewById(R.id.login_button);
+
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(
+                    "com.android.rema3",
+                    PackageManager.GET_SIGNATURES);
+            for (Signature signature : info.signatures) {
+                MessageDigest md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+                Log.d("KeyHash:", Base64.encodeToString(md.digest(), Base64.DEFAULT));
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+
+        } catch (NoSuchAlgorithmException e) {
+
+        }
+
+        loginButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+                progress.show();
+                Profile profile = Profile.getCurrentProfile();
+                if (profile != null) {
+                    facebook_id = profile.getId();
+                    f_name = profile.getFirstName();
+                    m_name = profile.getMiddleName();
+                    l_name = profile.getLastName();
+                    facebook_link = profile.getLinkUri().toString();
+                    full_name = profile.getName();
+                    profile_image = profile.getProfilePictureUri(400, 400).toString();
+                }
+                GraphRequest request = GraphRequest.newMeRequest(
+                        AccessToken.getCurrentAccessToken(),
+                        new GraphRequest.GraphJSONObjectCallback() {
+                            @Override
+                            public void onCompleted(
+                                    JSONObject object,
+                                    GraphResponse response) {
+                                try {
+                                    Intent i = new Intent(LoginActivity.this, LoginFacebookFragment.class);
+                                    i.putExtra("type","facebook");
+                                    i.putExtra("facebook_id",facebook_id);
+                                    i.putExtra("f_name",f_name);
+                                    i.putExtra("m_name",m_name);
+                                    i.putExtra("l_name",l_name);
+                                    i.putExtra("full_name",full_name);
+                                    i.putExtra("profile_image",profile_image);
+                                    i.putExtra("email_id",email_id);
+                                    i.putExtra("gender",gender);
+                                    i.putExtra("facebook_link",facebook_link);
+
+                                    progress.dismiss();
+                                    startActivity(i);
+                                } catch (Exception e) {
+                                      e.printStackTrace();
+                                }
+
+                            }
+                        });
+
+                request.executeAsync();
+                }
+
+
+                @Override
+                    public void onCancel() {
+                        Toast.makeText(getApplicationContext(),"Login Attempt Canceled", Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onError(FacebookException exception) {
+                        Toast.makeText(getApplicationContext(),"Login Attempt Failed", Toast.LENGTH_LONG).show();
+                    }
+                });
 
         inputEmail = (EditText) findViewById(R.id.email);
         inputPassword = (EditText) findViewById(R.id.password);
@@ -169,6 +274,12 @@ public class LoginActivity extends Activity {
     private void hideDialog() {
         if (pDialog.isShowing())
             pDialog.dismiss();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        callbackManager.onActivityResult(requestCode, resultCode, data);
     }
 }
 

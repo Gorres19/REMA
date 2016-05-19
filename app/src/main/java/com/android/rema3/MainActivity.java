@@ -39,6 +39,8 @@ public class MainActivity extends Activity {
 
         if (!session.isLoggedIn()) {
             logoutUser();
+
+
         }
 
         HashMap<String, String> user = db.getUserDetails();
@@ -64,4 +66,5 @@ public class MainActivity extends Activity {
         startActivity(intent);
         finish();
     }
+
 }
